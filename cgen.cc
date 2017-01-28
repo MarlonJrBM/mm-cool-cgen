@@ -327,6 +327,11 @@ static void emit_push(char *reg, ostream& str)
   emit_addiu(SP,SP,-4,str);
 }
 
+static void emit_pop(char *reg, ostream& str) {
+  emit_load(reg,1,SP,str);    
+  emit_addiu(SP,SP,4,str);
+}
+
 //
 // Fetch the integer value in an Int object.
 // Emits code to fetch the integer value of the Integer object pointed
@@ -1159,9 +1164,11 @@ void assign_class::code(ostream &s) {
 }
 
 void static_dispatch_class::code(ostream &s) {
+    //TOOD - Remember to treat dispatch on void case!!
 }
 
 void dispatch_class::code(ostream &s) {
+    //TOOD - Remember to treat dispatch on void case!!
 }
 
 void cond_class::code(ostream &s) {
@@ -1180,15 +1187,35 @@ void let_class::code(ostream &s) {
 }
 
 void plus_class::code(ostream &s) {
+    e1->code(s);
+    emit_push(ACC,s);
+    e2->code(s);
+    emit_pop(T1,s);
+    emit_add(ACC,T1,ACC,s);
 }
 
 void sub_class::code(ostream &s) {
+    e1->code(s);
+    emit_push(ACC,s);
+    e2->code(s);
+    emit_pop(T1,s);
+    emit_sub(ACC,T1,ACC,s);
 }
 
 void mul_class::code(ostream &s) {
+    e1->code(s);
+    emit_push(ACC,s);
+    e2->code(s);
+    emit_pop(T1,s);
+    emit_mul(ACC,T1,ACC,s);
 }
 
 void divide_class::code(ostream &s) {
+    e1->code(s);
+    emit_push(ACC,s);
+    e2->code(s);
+    emit_pop(T1,s);
+    emit_div(ACC,T1,ACC,s);
 }
 
 void neg_class::code(ostream &s) {
