@@ -12,6 +12,7 @@ enum Basicness     {Basic, NotBasic};
 
 class CgenClassTable;
 typedef CgenClassTable *CgenClassTableP;
+typedef std::vector<std::pair<Symbol, CgenNode*> > DispTableT;
 
 class CgenNode;
 typedef CgenNode *CgenNodeP;
@@ -94,7 +95,7 @@ private:
    std::vector<Feature> attributes;           // will hold all attributes from entire 
                                               // class chain, following the necessary order
    std::vector<Feature> local_attributes;
-   std::map<Symbol, CgenNode*> disptable;     // dispatch table implementation
+   DispTableT  disptable;                     // dispatch table implementation
                                               //maps method name to its corresponding class
    std::vector<Feature> local_methods;
 
@@ -121,7 +122,7 @@ public:
    std::vector<Feature>& get_attributes() {return attributes;}
    std::vector<Feature>& get_local_attributes() {return local_attributes;}
    std::vector<Feature>& get_local_methods() {return local_methods;}
-   std::map<Symbol, CgenNode*>& get_disptable() {return disptable;}
+   std::vector<std::pair<Symbol,CgenNode*> >& get_disptable() {return disptable;}
    std::string get_default_val() {return default_val;}
    void set_default_val(const std::string& s) {default_val = s;}
    Features get_features() {return features;}

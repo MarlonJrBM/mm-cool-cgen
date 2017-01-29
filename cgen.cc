@@ -27,6 +27,7 @@
 
 #include <functional>
 #include <sstream>
+#include <algorithm>
 
 extern void emit_string_constant(ostream& str, char *s);
 extern int cgen_debug;
@@ -114,6 +115,7 @@ static char *gc_collect_names[] =
   { "_NoGC_Collect", "_GenGC_Collect", "_ScnGC_Collect" };
 
 
+static int labelNum = 0;
 //  BoolConst is a class that implements code generation for operations
 //  on the two booleans, which are given global names here.
 BoolConst falsebool(FALSE);
@@ -1012,7 +1014,7 @@ void CgenClassTable::emit_methods() {
 
 void CgenClassTable::emit_disptable(CgenNode* node) {
     str << node->get_name() << "_dispTab:" << endl;
-    for (std::map<Symbol,CgenNode*>::iterator it = node->get_disptable().begin();
+    for (DispTableT::iterator it = node->get_disptable().begin();
             it != node->get_disptable().end();
             ++it) {
         str << WORD << it->second->get_name() << "." << it->first << endl;
@@ -1051,8 +1053,29 @@ void attr_class::set_node_info(CgenNode* node) {
     node->get_local_attributes().push_back(this);
 }
 
+struct PairComparator {
+    PairComparator(Symbol s) : sym(s) {}
+    inline bool operator()(const std::pair<Symbol,CgenNode*>& pair) {
+        return pair.first == sym;
+    }
+
+    Symbol sym;
+};
+
 void method_class::set_node_info(CgenNode* node) {
-    node->get_disptable()[this->name] = node;
+    DispTableT& disptable = node->get_disptable();
+    std::pair<Symbol,CgenNode*> pair = std::pair<Symbol,CgenNode*>(this->name,node);
+    DispTableT::iterator it = std::find_if(disptable.begin(),disptable.end(), 
+            PairComparator(this->name));
+
+    //Updates reference of a certain method on the table if that method is already
+    //there
+    if (it != disptable.end()) {
+        it->second = node;
+    } else {
+        disptable.push_back(pair);
+    }
+
     node->get_local_methods().push_back(this);
 }
 
@@ -1163,26 +1186,38 @@ CgenNode::CgenNode(Class_ nd, Basicness bstatus, CgenClassTableP ct, std::string
 void assign_class::code(ostream &s) {
 }
 
+//<expr>@<type_name>.name(actual)
+//c@Foo.bar(a,b);
 void static_dispatch_class::code(ostream &s) {
     //TOOD - Remember to treat dispatch on void case!!
 }
 
+//<expr>.name(actual)
+//c.bar(a,b)
 void dispatch_class::code(ostream &s) {
     //TOOD - Remember to treat dispatch on void case!!
 }
 
+//if <pred> then <then_exp> else <else_exp>
 void cond_class::code(ostream &s) {
 }
 
+//while <pred> loop <body> pool
 void loop_class::code(ostream &s) {
 }
 
+//case <expr> of <cases> esac
+//case e of a : Foo => a.bar(); b : Bar => b.foo();
 void typcase_class::code(ostream &s) {
 }
 
 void block_class::code(ostream &s) {
+    for (int ii = body->first(); body->more(ii); ii = body->next(ii)) {
+        body->nth(ii)->code(s);
+    }
 }
 
+//let <identifier> : <type_decl> [<- init] in <body>
 void let_class::code(ostream &s) {
 }
 
@@ -1218,20 +1253,78 @@ void divide_class::code(ostream &s) {
     emit_div(ACC,T1,ACC,s);
 }
 
+//~e1
 void neg_class::code(ostream &s) {
+    e1->code(s);
+    emit_neg(ACC, ACC,s );
 }
 
+//e1 < e2
 void lt_class::code(ostream &s) {
+    e1->code(s);
+    emit_push(ACC,s);
+    e2->code(s);
+    emit_pop(T1,s);
+
+    emit_load_bool(T2, BoolConst(1), s);
+    emit_blt(T1, ACC,labelNum,s );
+    emit_load_bool(T2, BoolConst(0), s);
+
+    emit_label_def(labelNum,s);
+    emit_move(ACC,T2,s);
+    
+    ++labelNum;
 }
 
+
+//e1 = e2
 void eq_class::code(ostream &s) {
+    e1->code(s);
+    emit_push(ACC,s);
+    e2->code(s);
+    emit_pop(T1,s);
+
+    emit_load_bool(T2, BoolConst(1), s);
+    emit_beq(T1, ACC,labelNum,s );
+    emit_load_bool(T2, BoolConst(0), s);
+
+    emit_label_def(labelNum,s);
+    emit_move(ACC,T2,s);
+    
+    ++labelNum;
 }
 
+//e1 <= e2
 void leq_class::code(ostream &s) {
+    e1->code(s);
+    emit_push(ACC,s);
+    e2->code(s);
+    emit_pop(T1,s);
+
+    emit_load_bool(T2, BoolConst(1), s);
+    emit_bleq(T1, ACC,labelNum,s );
+    emit_load_bool(T2, BoolConst(0), s);
+
+    emit_label_def(labelNum,s);
+    emit_move(ACC,T2,s);
+    
+    ++labelNum;
 }
 
+//NOT e1
 void comp_class::code(ostream &s) {
+    e1->code(s);
+
+    emit_load_bool(T1, BoolConst(1), s);
+    emit_beqz(ACC,labelNum,s );
+    emit_load_bool(T1, BoolConst(0), s);
+
+    emit_label_def(labelNum,s);
+    emit_move(ACC,T1, s);
+    
+    ++labelNum;
 }
+
 
 void int_const_class::code(ostream& s)  
 {
@@ -1261,6 +1354,7 @@ void no_expr_class::code(ostream &s) {
 }
 
 void object_class::code(ostream &s) {
+    cout << "I'm inside!!! (" << name << ")" << endl;
 }
 
 
