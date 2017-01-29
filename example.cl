@@ -34,7 +34,11 @@ class Main inherits IO {
   lt() : Bool {1 < 2};
   comp() : Bool {NOT true};
   caller() : Int {parameters(1,"2")};
+  neg() : Int {~2};
   parameters(x: Int, y: String) : Int {x};
+  cond() : Int {
+    if (true) then 1 else 2 fi
+  };
 };
 
 

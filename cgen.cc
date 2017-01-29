@@ -1250,6 +1250,26 @@ void dispatch_class::code(ostream &s) {
 
 //if <pred> then <then_exp> else <else_exp>
 void cond_class::code(ostream &s) {
+    pred->code(s);
+
+    //The below line is dubious. I believe it's necessary because
+    //the actual bool_const value is at offset 12 of the object.
+    emit_load(ACC,3,ACC,s);
+
+    emit_beqz(ACC,labelNum,s); //branch to false if ACC = 0
+
+    //True branch
+    then_exp->code(s);
+    emit_branch(labelNum+1,s); //goes to the end branch
+
+    //False branch
+    emit_label_def(labelNum,s);
+    else_exp->code(s);
+
+    emit_label_def(labelNum+1,s);
+
+    labelNum +=2;
+
 }
 
 //while <pred> loop <body> pool
@@ -1273,47 +1293,73 @@ void let_class::code(ostream &s) {
 
 void plus_class::code(ostream &s) {
     e1->code(s);
+    emit_jal("Object.copy",s);
     emit_push(ACC,s);
     e2->code(s);
     emit_pop(T1,s);
-    emit_add(ACC,T1,ACC,s);
+    emit_load(ACC,3,ACC,s); //get the actual value from e2 into acc
+    emit_load(T2,3,T1,s); //get the actual value from e2 into T2
+    emit_add(T2,T2,ACC,s);
+    emit_store(T2,3,T1,s); //store new value in new object
+    emit_move(ACC,T1,s);
 }
 
 void sub_class::code(ostream &s) {
     e1->code(s);
+    emit_jal("Object.copy",s);
     emit_push(ACC,s);
     e2->code(s);
     emit_pop(T1,s);
-    emit_sub(ACC,T1,ACC,s);
+    emit_load(ACC,3,ACC,s); //get the actual value from e2 into acc
+    emit_load(T2,3,T1,s); //get the actual value from e2 into T2
+    emit_sub(T2,T2,ACC,s);
+    emit_store(T2,3,T1,s); //store new value in new object
+    emit_move(ACC,T1,s);
 }
 
 void mul_class::code(ostream &s) {
     e1->code(s);
+    emit_jal("Object.copy",s);
     emit_push(ACC,s);
     e2->code(s);
     emit_pop(T1,s);
-    emit_mul(ACC,T1,ACC,s);
+    emit_load(ACC,3,ACC,s); //get the actual value from e2 into acc
+    emit_load(T2,3,T1,s); //get the actual value from e2 into T2
+    emit_mul(T2,T2,ACC,s);
+    emit_store(T2,3,T1,s); //store new value in new object
+    emit_move(ACC,T1,s);
 }
 
 void divide_class::code(ostream &s) {
     e1->code(s);
+    emit_jal("Object.copy",s);
     emit_push(ACC,s);
     e2->code(s);
     emit_pop(T1,s);
-    emit_div(ACC,T1,ACC,s);
+    emit_load(ACC,3,ACC,s); //get the actual value from e2 into acc
+    emit_load(T2,3,T1,s); //get the actual value from e2 into T2
+    emit_div(T2,T2,ACC,s);
+    emit_store(T2,3,T1,s); //store new value in new object
+    emit_move(ACC,T1,s);
 }
 
 //~e1
 void neg_class::code(ostream &s) {
     e1->code(s);
-    emit_neg(ACC, ACC,s );
+    emit_jal("Object.copy",s);
+    emit_load(T1,3,ACC,s);
+    emit_neg(T1, T1,s );
+    emit_store(T1,3,ACC,s);
 }
 
 //e1 < e2
 void lt_class::code(ostream &s) {
     e1->code(s);
+    emit_load(ACC,3,ACC,s);
     emit_push(ACC,s);
     e2->code(s);
+    emit_load(ACC,3,ACC,s);
+  
     emit_pop(T1,s);
 
     emit_load_bool(T2, BoolConst(1), s);
@@ -1330,8 +1376,10 @@ void lt_class::code(ostream &s) {
 //e1 = e2
 void eq_class::code(ostream &s) {
     e1->code(s);
+    emit_load(ACC,3,ACC,s);
     emit_push(ACC,s);
     e2->code(s);
+    emit_load(ACC,3,ACC,s);
     emit_pop(T1,s);
 
     emit_load_bool(T2, BoolConst(1), s);
@@ -1347,8 +1395,10 @@ void eq_class::code(ostream &s) {
 //e1 <= e2
 void leq_class::code(ostream &s) {
     e1->code(s);
+    emit_load(ACC,3,ACC,s);
     emit_push(ACC,s);
     e2->code(s);
+    emit_load(ACC,3,ACC,s);
     emit_pop(T1,s);
 
     emit_load_bool(T2, BoolConst(1), s);
@@ -1364,6 +1414,7 @@ void leq_class::code(ostream &s) {
 //NOT e1
 void comp_class::code(ostream &s) {
     e1->code(s);
+    emit_load(ACC,3,ACC,s);
 
     emit_load_bool(T1, BoolConst(1), s);
     emit_beqz(ACC,labelNum,s );
@@ -1401,6 +1452,7 @@ void isvoid_class::code(ostream &s) {
 }
 
 void no_expr_class::code(ostream &s) {
+    //NOP
 }
 
 void object_class::code(ostream &s) {
