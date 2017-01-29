@@ -17,6 +17,16 @@ typedef std::vector<std::pair<Symbol, CgenNode*> > DispTableT;
 class CgenNode;
 typedef CgenNode *CgenNodeP;
 
+
+struct Coordinate {
+    Coordinate(int o, char* r) : offset(o), reg(r) {}
+    int offset;
+    char* reg;
+    std::string to_string();
+};
+
+typedef SymbolTable<Symbol,Coordinate> EnvironmentT;
+
 class CgenClassTable : public SymbolTable<Symbol,CgenNode> {
 private:
    List<CgenNode> *nds;
@@ -99,15 +109,18 @@ private:
                                               //maps method name to its corresponding class
    std::vector<Feature> local_methods;
 
+   SymbolTable<Symbol,Coordinate> environment;
    int classtag;
    std::string default_val;
+   
 
 public:
-   //TODO - is default_val default val correct??
    CgenNode(Class_ c,
             Basicness bstatus,
             CgenClassTableP class_table,
             std::string default_val_ = "0");
+
+   //TODO - Add a destructor to clean up my mess (specially i environment table)
 
    void add_child(CgenNodeP child);
    List<CgenNode> *get_children() { return children; }
@@ -126,6 +139,7 @@ public:
    std::string get_default_val() {return default_val;}
    void set_default_val(const std::string& s) {default_val = s;}
    Features get_features() {return features;}
+   SymbolTable<Symbol,Coordinate>& get_environment() { return environment;}
 };
 
 class BoolConst 

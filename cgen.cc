@@ -114,8 +114,15 @@ static char *gc_init_names[] =
 static char *gc_collect_names[] =
   { "_NoGC_Collect", "_GenGC_Collect", "_ScnGC_Collect" };
 
-
+//---------------------------------------------------------
+//GLOBAL STATIC VARS WRITTEN BY ME SECTION
 static int labelNum = 0;
+static CgenNode* cur_node = NULL;
+
+
+
+//---------------------------------------------------------
+
 //  BoolConst is a class that implements code generation for operations
 //  on the two booleans, which are given global names here.
 BoolConst falsebool(FALSE);
@@ -371,6 +378,20 @@ static void emit_gc_check(char *source, ostream &s)
 
 //Common code to be emmitted before a function's body
 static void emit_before_function(ostream& s, Feature method = NULL) {
+
+    //Populate environment
+    if (method!= NULL) {
+        //I'm assuming the arguments will be pushed to stack
+        //in their natural order
+        for (int ii = method->get_formals()->first(); method->get_formals()->more(ii); 
+                ii = method->get_formals()->next(ii)) {
+            int offset = DEFAULT_OBJFIELDS +  method->get_formals()->len() - ii -1;
+            cur_node->get_environment().addid(method->get_formals()->nth(ii)->get_name(),
+                    new Coordinate(offset, FP));
+        }
+    }
+
+
     //Pushes fp, s0 and ra to the stack, respectively
     emit_addiu(SP, SP, -12, s );
     emit_store(FP, 3, SP,s);
@@ -386,14 +407,16 @@ static void emit_before_function(ostream& s, Feature method = NULL) {
 
 //Common code to be emmitted after a function's body
 static void emit_after_function(ostream& s, Feature method = NULL) {
+    int numAttrs = DEFAULT_OBJFIELDS;
+    if (method != NULL) {
+        numAttrs += method->get_formals()->len();
+    }
 
-//TODO - probably there's some real work missing here - popping parameters from the
-//stack
     //Pop fp, s0 and ra from stack
     emit_load(FP, 3, SP,s);
     emit_load(SELF, 2, SP,s);
     emit_load(RA, 1, SP,s);
-    emit_addiu(SP, SP, 12, s );
+    emit_addiu(SP, SP, numAttrs*WORD_SIZE, s );
     emit_return(s);
     
     return;
@@ -923,10 +946,12 @@ void CgenClassTable::code()
     emit_obj_table();
 
     for(List<CgenNode> *l = nds; l; l = l->tl()) {
+        cur_node = l->hd();
         emit_disptable(l->hd());
     }
 
     for(List<CgenNode> *l = nds; l; l = l->tl()) {
+        cur_node = l->hd();
         emit_prototype(l->hd());
     }
 
@@ -1004,6 +1029,7 @@ void CgenClassTable::emit_methods() {
     //Iterate through classes
     for(List<CgenNode> *l = nds; l; l = l->tl()) {
         CgenNode* node = l->hd();
+        cur_node = node;
        
         //Iterate through methods
         for (size_t ii = 0; ii < node->get_local_methods().size(); ++ii) {
@@ -1051,6 +1077,10 @@ void CgenClassTable::emit_prototype(CgenNode* node) {
 void attr_class::set_node_info(CgenNode* node) {
     node->get_attributes().push_back(this);
     node->get_local_attributes().push_back(this);
+
+    //Populate environment accordingly
+    node->get_environment().addid(this->name, new Coordinate(DEFAULT_OBJFIELDS + 
+                node->get_attributes().size() - 1, SELF));
 }
 
 struct PairComparator {
@@ -1079,15 +1109,25 @@ void method_class::set_node_info(CgenNode* node) {
     node->get_local_methods().push_back(this);
 }
 
+//You can also see this as a "first pass"
 void CgenClassTable::set_obj_properties() {
     rec_obj_properties(root());
 }
 
 void CgenClassTable::rec_obj_properties(CgenNode* node) {
+    EnvironmentT& env = node->get_environment();
+
+    env.enterscope();
     
     //Adds features from class right above
-    //TODO - what above object case??
     node->get_attributes() = node->get_parentnd()->get_attributes();
+
+    //Repopulate environment accordingly
+    for (size_t ii = 0; ii < node->get_attributes().size(); ++ii) {
+        Feature attr = node->get_attributes()[ii];
+        env.addid(attr->get_name(), new Coordinate(DEFAULT_OBJFIELDS + ii, SELF));
+    }
+
     node->get_disptable() = node->get_parentnd()->get_disptable();
 
     if (node->get_name() == Str) {
@@ -1133,6 +1173,12 @@ void attr_class::code(CgenNode* node, std::ostream& s) {
     return;
 }
 
+std::string Coordinate::to_string() {
+    std::stringstream ss;
+    ss << offset*WORD_SIZE << "(" << reg << ")";
+    return ss.str();
+}
+
 void method_class::code(CgenNode* node, std::ostream& s) {
     if (!node->basic()) {
         emit_method_ref(node->get_name(), this->name, s ); 
@@ -1140,10 +1186,14 @@ void method_class::code(CgenNode* node, std::ostream& s) {
 
         //TODO - The real work goes here!!
         //Now the magic happens...
+
+        //(probably in the emit_X_function methods...)
+        node->get_environment().enterscope();
         emit_before_function(s, this);
         emit_move(SELF, ACC,s);
         expr->code(s);
         emit_after_function(s, this);
+        node->get_environment().exitscope();
     }
     return;
 
@@ -1354,7 +1404,17 @@ void no_expr_class::code(ostream &s) {
 }
 
 void object_class::code(ostream &s) {
+    EnvironmentT& env = cur_node->get_environment();
+
+    if (name != self) {
+        emit_load(ACC, env.lookup(name)->offset, env.lookup(name)->reg,s);
+    } else {
+        emit_move(ACC,SELF,s);
+    }
+
+    //TODO - Comments these later on down the road
     cout << "I'm inside!!! (" << name << ")" << endl;
+    cout << cur_node->get_name() << ": " << env.lookup(name)->to_string() << endl;
 }
 
 

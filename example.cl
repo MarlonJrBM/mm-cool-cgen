@@ -21,8 +21,8 @@ class B inherits A {
     hh : String <- "AAA";
     b : Int <- 2;
     h() : String {"BBB"};
-    f(c: Int) : Int {c};
-    y() : String {"666"};
+    f(b: Int) : Int {b};
+    y(a: Int, b: Int) : Int {a+b};
 };
 
 class Main inherits IO {
@@ -33,5 +33,8 @@ class Main inherits IO {
   div() : Int {3 / 1};
   lt() : Bool {1 < 2};
   comp() : Bool {NOT true};
+  caller() : Int {parameters(1,"2")};
+  parameters(x: Int, y: String) : Int {x};
 };
+
 
