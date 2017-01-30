@@ -21,6 +21,22 @@ sobre as expressões dos mesmos. Nesta etapa eu utilizo extensivamente as estrut
 anteriores, como por exemplo a "coordenada" de cada variável (se ela está na pilha ou no objeto, e qual
 seu offset, entre outros).
 
+
+Notas de Implementação
+----------------------
+
+Gostaria de ressaltar alguns tipos que eu mesmo defini e que foram de extrema utilidade no desenvolvimento do TP.
+
+* Coordinate - Uma tupla contendo dois campos: um offset (int) e um registrador (char*);
+
+* EnvironmentT - um alias para SymbolTable<Symbol,Coordinate>. É aqui que guardo a informação de onde determinado
+símbolo se encontra (offset e registrador - que podem ser FP ou S0). Como essa classe é uma SymbolTable, ela lida
+com a questão de escopos perfeitamente. Cada classe do programa possui uma estrutura de tipo EnvironmentT;
+
+* DispTableT - um alias para std::vector<std::pair<Symbol, CgenNode*> >. É aqui que guardo os métodos da tabela
+de despacho de cada classe, observando as regras de polimorfismo. Cada classe do programa possui uma estrutura do 
+tipo DispTableT.
+
 Testes
 ------
 
