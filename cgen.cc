@@ -117,8 +117,9 @@ static char *gc_collect_names[] =
 //---------------------------------------------------------
 //GLOBAL STATIC VARS WRITTEN BY ME SECTION
 static int labelNum = 0;
+static int localOffset = -1;
 static CgenNode* cur_node = NULL;
-
+static CgenClassTable *codegen_classtable;
 
 
 //---------------------------------------------------------
@@ -144,14 +145,14 @@ BoolConst truebool(TRUE);
 void program_class::cgen(ostream &os) 
 {
   // spim wants comments to start with '#'
-  os << "# start of generated code\n";
+  os << "# start MM-generated code \n";
 
   initialize_constants();
-  CgenClassTable *codegen_classtable = new CgenClassTable(classes,os);
+  codegen_classtable = new CgenClassTable(classes,os);
+  codegen_classtable->code();
+  codegen_classtable->exitscope();
 
-  //TODO - Do stuff here
-
-  os << "\n# end of generated code\n";
+  os << "\n# end of MM-generated code\n";
 }
 
 
@@ -711,8 +712,6 @@ CgenClassTable::CgenClassTable(Classes& classes_, ostream& s) : nds(NULL) , clas
 
    set_obj_properties();
 
-   code();
-   exitscope();
 }
 
 void CgenClassTable::install_basic_classes()
@@ -1232,7 +1231,6 @@ CgenNode::CgenNode(Class_ nd, Basicness bstatus, CgenClassTableP ct, std::string
 //
 //*****************************************************************
 
-//TODO - Write everything below!!
 void assign_class::code(ostream &s) {
     EnvironmentT& env = cur_node->get_environment();
     expr->code(s);
@@ -1243,13 +1241,113 @@ void assign_class::code(ostream &s) {
 //<expr>@<type_name>.name(actual)
 //c@Foo.bar(a,b);
 void static_dispatch_class::code(ostream &s) {
-    //TOOD - Remember to treat dispatch on void case!!
+
+    for (int ii = actual->first(); actual->more(ii); ii = actual->next(ii) ) {
+        actual->nth(ii)->code(s);    
+        emit_push(ACC,s);
+    }
+    expr->code(s);
+    emit_bne(ACC,ZERO, labelNum,s);
+
+    //Dispatching on void
+    StringEntry* entry = stringtable.lookup_string(cur_node->get_filename()->get_string());
+    emit_load_string(ACC, entry,s);
+    emit_load_imm(T1, line_number,s);
+    emit_jal("_dispatch_abort", s);
+
+    //Dispatch table stuff
+    emit_label_def(labelNum,s);
+    emit_partial_load_address(T1,s); emit_disptable_ref(type_name,s); s << endl;
+
+    //Gets offset
+    CgenNode* type;
+    if (type_name == SELF_TYPE) {
+        type = cur_node;
+    } else {
+        type = codegen_classtable->lookup(type_name);
+    }
+    DispTableT& disp = type->get_disptable();
+    size_t offset = 0;
+    for (offset = 0; offset < disp.size(); ++offset) {
+        if (disp[offset].first == name) break;
+    }
+
+    emit_load(T1, offset,T1,s);
+    emit_jalr(T1,s);
+
+
+    ++labelNum;
 }
 
 //<expr>.name(actual)
 //c.bar(a,b)
 void dispatch_class::code(ostream &s) {
-    //TOOD - Remember to treat dispatch on void case!!
+    for (int ii = actual->first(); actual->more(ii); ii = actual->next(ii) ) {
+        actual->nth(ii)->code(s);    
+        emit_push(ACC,s);
+    }
+    expr->code(s);
+    emit_bne(ACC,ZERO, labelNum,s);
+
+    //Dispatching on void
+    StringEntry* entry = stringtable.lookup_string(cur_node->get_filename()->get_string());
+    emit_load_string(ACC, entry,s);
+    emit_load_imm(T1, line_number,s);
+    emit_jal("_dispatch_abort", s);
+
+    //Dispatch table stuff
+    emit_label_def(labelNum,s);
+    emit_load(T1, DISPTABLE_OFFSET, ACC,s);
+
+    //Gets offset
+    CgenNode* type;
+    if (expr->get_type() == SELF_TYPE) {
+        type = cur_node;
+    } else {
+       type =  codegen_classtable->lookup(expr->get_type());
+    }
+    DispTableT& disp = type->get_disptable();
+    size_t offset = 0;
+    for (offset = 0; offset < disp.size(); ++offset) {
+        if (disp[offset].first == name) break;
+    }
+
+    emit_load(T1, offset,T1,s);
+    emit_jalr(T1,s);
+
+
+    ++labelNum;
+}
+
+//case <expr> of <cases> esac
+//case e of a : Foo => a.bar(); b : Bar => b.foo();
+void typcase_class::code(ostream &s) {
+//TODO - Write everything below!!
+}
+
+//let <identifier> : <type_decl> [<- init] in <body>
+void let_class::code(ostream &s) {
+    EnvironmentT& env = cur_node->get_environment();
+
+    init->code(s);
+    env.enterscope();
+
+    if (init->get_type() == NULL) {
+        emit_load_address(T1,(char*)
+                codegen_classtable->lookup(type_decl)->get_default_val().c_str(),s);
+    } else {
+        emit_move(T1, ACC,s);
+    }
+
+    emit_push(T1,s); //make room for local variable
+    env.addid(identifier, new Coordinate(localOffset,FP));
+    --localOffset;
+    body->code(s);
+    ++localOffset;
+
+    emit_addiu(SP,SP,4,s); //clear the local variable
+
+    env.exitscope();
 }
 
 //if <pred> then <then_exp> else <else_exp>
@@ -1290,10 +1388,6 @@ void loop_class::code(ostream &s) {
     labelNum += 2;
 }
 
-//case <expr> of <cases> esac
-//case e of a : Foo => a.bar(); b : Bar => b.foo();
-void typcase_class::code(ostream &s) {
-}
 
 void block_class::code(ostream &s) {
     for (int ii = body->first(); body->more(ii); ii = body->next(ii)) {
@@ -1301,9 +1395,6 @@ void block_class::code(ostream &s) {
     }
 }
 
-//let <identifier> : <type_decl> [<- init] in <body>
-void let_class::code(ostream &s) {
-}
 
 void plus_class::code(ostream &s) {
     e1->code(s);
@@ -1460,6 +1551,10 @@ void bool_const_class::code(ostream& s)
 }
 
 void new__class::code(ostream &s) {
+    emit_partial_load_address(ACC, s);
+    emit_protobj_ref(type_name,s); s << endl;
+    emit_jal("Object.copy",s);
+    s << JAL << " "; emit_init_ref(type_name,s); s << endl;
 }
 
 void isvoid_class::code(ostream &s) {
@@ -1475,6 +1570,7 @@ void isvoid_class::code(ostream &s) {
 
 void no_expr_class::code(ostream &s) {
     //NOP
+    //cout << "NOP" << endl;
 }
 
 void object_class::code(ostream &s) {
@@ -1486,9 +1582,6 @@ void object_class::code(ostream &s) {
         emit_move(ACC,SELF,s);
     }
 
-    //TODO - Comments these later on down the road
-    cout << "I'm inside!!! (" << name << ")" << endl;
-    cout << cur_node->get_name() << ": " << env.lookup(name)->to_string() << endl;
 }
 
 
