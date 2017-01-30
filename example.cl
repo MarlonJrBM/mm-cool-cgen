@@ -21,11 +21,13 @@ class B inherits A {
     hh : String <- "AAA";
     b : Int <- 2;
     h() : String {"BBB"};
-    f(b: Int) : Int {b};
+    f(b: Int) : Int {b <- 3};
     y(a: Int, b: Int) : Int {a+b};
 };
 
 class Main inherits IO {
+  a: String;
+  b: Int;
   main():Int { 0 };
   plus(): Int {1 + 2};
   sub() : Int {3 - 1};
@@ -41,6 +43,7 @@ class Main inherits IO {
   };
   loopF() : Object { while true loop 1 pool };
   isVoidF() : Bool {isvoid 1};
+  assign() : Int {b <- 3};
 };
 
 

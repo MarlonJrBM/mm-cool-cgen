@@ -1234,6 +1234,10 @@ CgenNode::CgenNode(Class_ nd, Basicness bstatus, CgenClassTableP ct, std::string
 
 //TODO - Write everything below!!
 void assign_class::code(ostream &s) {
+    EnvironmentT& env = cur_node->get_environment();
+    expr->code(s);
+    
+    emit_store(ACC,env.lookup(name)->offset ,env.lookup(name)->reg,s);
 }
 
 //<expr>@<type_name>.name(actual)
