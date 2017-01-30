@@ -1274,6 +1274,16 @@ void cond_class::code(ostream &s) {
 
 //while <pred> loop <body> pool
 void loop_class::code(ostream &s) {
+    emit_label_def(labelNum,s);
+    pred->code(s);
+    emit_load(T1,3,ACC,s);
+    emit_beq(T1,ZERO,labelNum+1,s);
+    body->code(s);
+    emit_branch(labelNum,s);
+    emit_label_def(labelNum+1,s);
+    emit_move(ACC,ZERO,s);
+
+    labelNum += 2;
 }
 
 //case <expr> of <cases> esac
@@ -1449,6 +1459,14 @@ void new__class::code(ostream &s) {
 }
 
 void isvoid_class::code(ostream &s) {
+    e1->code(s);
+    emit_move(T1,ACC,s);
+    emit_load_bool(ACC,BoolConst(1),s);
+    emit_beqz(T1,labelNum,s);
+    emit_load_bool(ACC,BoolConst(0),s);
+
+    emit_label_def(labelNum,s);
+    labelNum++;
 }
 
 void no_expr_class::code(ostream &s) {

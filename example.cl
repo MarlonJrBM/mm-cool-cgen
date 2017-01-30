@@ -39,6 +39,8 @@ class Main inherits IO {
   cond() : Int {
     if (true) then 1 else 2 fi
   };
+  loopF() : Object { while true loop 1 pool };
+  isVoidF() : Bool {isvoid 1};
 };
 
 
