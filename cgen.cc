@@ -1399,34 +1399,37 @@ void cond_class::code(ostream &s) {
     //the actual bool_const value is at offset 12 of the object.
     emit_load(ACC,3,ACC,s);
 
-    emit_beqz(ACC,labelNum,s); //branch to false if ACC = 0
+    int falseLabel = labelNum++;
+    int endLabel = labelNum++;
+
+    emit_beqz(ACC,falseLabel,s); //branch to false if ACC = 0
 
     //True branch
     then_exp->code(s);
-    emit_branch(labelNum+1,s); //goes to the end branch
+    emit_branch(endLabel,s); //goes to the end branch
 
     //False branch
-    emit_label_def(labelNum,s);
+    emit_label_def(falseLabel,s);
     else_exp->code(s);
 
-    emit_label_def(labelNum+1,s);
-
-    labelNum +=2;
+    emit_label_def(endLabel,s);
 
 }
 
 //while <pred> loop <body> pool
 void loop_class::code(ostream &s) {
-    emit_label_def(labelNum,s);
+    int loopBegin = labelNum++;
+    int loopEnd = labelNum++;
+
+    emit_label_def(loopBegin,s);
     pred->code(s);
     emit_load(T1,3,ACC,s);
-    emit_beq(T1,ZERO,labelNum+1,s);
+    emit_beq(T1,ZERO,loopEnd,s);
     body->code(s);
-    emit_branch(labelNum,s);
-    emit_label_def(labelNum+1,s);
+    emit_branch(loopBegin,s);
+    emit_label_def(loopEnd,s);
     emit_move(ACC,ZERO,s);
 
-    labelNum += 2;
 }
 
 

@@ -11,15 +11,15 @@ TP5 - Geração de Código em COOL
 Etapas da Geração de Código
 ---------------------------
 
-Como de costume, dividi essa etapa em várias passadas -- no caso, três. Na primeira, é montado o grafo de 
-herança (código que já havia sido disponibilizado). Na segunda, diversas informações sobre as classes são 
-anotadas nas mesmas, tais como a class tag, o valor padrão, suas tabelas de despacho, o layout dos objetos, 
-entre outros itens que compõe a parte de dados do programa em MIPS.
+Como de costume, dividi essa etapa em várias passadas -- no caso, três. Na primeira, é montado 
+o grafo de herança (código que já havia sido disponibilizado). Na segunda, diversas informações
+sobre as classes são anotadas nas mesmas, tais como a class tag, o valor padrão, suas tabelas de
+despacho, o layout dos objetos, entre outros itens que compõe a parte de dados do programa em MIPS.
 
-Na terceira etapa, finalmente, eu gero o código de cada método presente no programa, iterando recursivamente
-sobre as expressões dos mesmos. Nesta etapa eu utilizo extensivamente as estruturas criadas nas passadas 
-anteriores, como por exemplo a "coordenada" de cada variável (se ela está na pilha ou no objeto, e qual
-seu offset, entre outros).
+Na terceira etapa, finalmente, eu gero o código de cada método presente no programa, iterando
+recursivamente sobre as expressões dos mesmos. Nesta etapa eu utilizo extensivamente as estruturas
+criadas nas passadas anteriores, como por exemplo a "coordenada" de cada variável (se ela está na
+pilha ou no objeto, e qual seu offset, entre outros).
 
 
 Notas de Implementação
@@ -29,29 +29,29 @@ Gostaria de ressaltar alguns tipos que eu mesmo defini e que foram de extrema ut
 
 * Coordinate - Uma tupla contendo dois campos: um offset (int) e um registrador (char*);
 
-* EnvironmentT - um alias para SymbolTable<Symbol,Coordinate>. É aqui que guardo a informação de onde determinado
-símbolo se encontra (offset e registrador - que podem ser FP ou S0). Como essa classe é uma SymbolTable, ela lida
-com a questão de escopos perfeitamente. Cada classe do programa possui uma estrutura de tipo EnvironmentT;
+* EnvironmentT - um alias para SymbolTable<Symbol,Coordinate>. É aqui que guardo a informação de onde determinado símbolo se encontra (offset e registrador - que podem ser FP ou S0). Como essa
+classe é uma SymbolTable, ela lida com a questão de escopos perfeitamente. Cada classe do programa possui uma estrutura de tipo EnvironmentT;
 
-* DispTableT - um alias para std::vector<std::pair<Symbol, CgenNode*> >. É aqui que guardo os métodos da tabela
-de despacho de cada classe, observando as regras de polimorfismo. Cada classe do programa possui uma estrutura do 
-tipo DispTableT.
+* DispTableT - um alias para std::vector<std::pair<Symbol, CgenNode*> >. É aqui que guardo os métodos da tabela de despacho de cada classe, observando as regras de polimorfismo. Cada classe
+do programa possui uma estrutura do tipo DispTableT.
 
 Testes
 ------
 
 Adotei uma estratégia ligeiramente mais "manual" neste TP. Fui criando pequenos métodos no arquivo
-example.cl, cada qual testava uma funcionalidade apenas. Por exemplo: criei o método Main.add, Main.sub,
-Main.lt, Main.dispatch, etc.
+example.cl, cada qual testava uma funcionalidade apenas. Por exemplo: criei o método Main.add, 
+Main.sub, Main.lt, Main.dispatch, etc.
 
-Averiguei a corretude do Gerador de Código analisando minuciosamente o arquivo assembly gerado pelo mesmo
-(example.s). 
+Averiguei a corretude do Gerador de Código analisando minuciosamente o arquivo assembly gerado pelo mesmo (example.s). Além disso, rodei algumas funções que imprimem resultados na tela (através de
+out_string e out_int) para averiguar a corretude através do interpretador spim. Tais testes 
+també podem ser conferidos no arquivo example.cl
 
 
 Limitações Conhecidas
 ----------------------
 
-Devido à limitações de tempo, as seguintes instruções não foram implementadas:
-  * Case
-  
-Além disso, não foi possível testar o gerador de código com a extensão que eu gostaria. 
+Devido à limitações de tempo, não fui capaz de testar o trabalho tão extensivamente como
+gostaria. Fiz o meu melhor para testar as funções, mas é provável que algum bug apareça - 
+especialmente nas expressões do tipo let e case, além de expressões que façam referência a
+SELF_TYPE (as quais fiz com mais pressa).
+
