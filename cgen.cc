@@ -400,8 +400,6 @@ static void emit_before_function(ostream& s, Feature method = NULL) {
     emit_store(RA, 1, SP,s);
     emit_addiu(FP,SP, 4, s);
 
-//TODO - probably there's some real work missing here - pushing parameters
-//to the stack!!
     return;
 
 }
@@ -1183,7 +1181,6 @@ void method_class::code(CgenNode* node, std::ostream& s) {
         emit_method_ref(node->get_name(), this->name, s ); 
         s << LABEL;
 
-        //TODO - The real work goes here!!
         //Now the magic happens...
 
         //(probably in the emit_X_function methods...)
@@ -1322,7 +1319,51 @@ void dispatch_class::code(ostream &s) {
 //case <expr> of <cases> esac
 //case e of a : Foo => a.bar(); b : Bar => b.foo();
 void typcase_class::code(ostream &s) {
-//TODO - Write everything below!!
+
+    int firstLabel = labelNum; ++labelNum;
+    expr->code(s);
+    emit_bne(ACC,ZERO,labelNum,s);
+    StringEntry* entry = stringtable.lookup_string(cur_node->get_filename()->get_string());
+    emit_load_string(ACC, entry,s);
+    emit_load_imm(T1, line_number,s);
+    emit_jal("_case_abort2", s);
+
+
+    for (int ii = cases->first(); cases->more(ii); ii = cases->next(ii)) {
+        emit_label_def(labelNum,s);
+        ++labelNum;
+        Symbol type = cases->nth(ii)->get_type();
+        int tag = codegen_classtable->lookup(type)->get_classtag();
+        EnvironmentT& env = cur_node->get_environment();
+
+        emit_load(T2,0,ACC,s);
+        emit_blti(T2,tag,labelNum,s);
+        emit_bgti(T2,tag,labelNum,s);
+        env.enterscope();
+        env.addid(cases->nth(ii)->get_name(), new Coordinate(
+                    localOffset, FP));
+        emit_push(ACC,s);
+        --localOffset;
+        cases->nth(ii)->code(s);
+        ++localOffset;
+        env.exitscope();
+        emit_addiu(SP,SP,4,s);
+        emit_branch(firstLabel,s);
+    }
+
+    emit_label_def(labelNum,s);
+    emit_jal("_case_abort",s);
+
+    emit_label_def(firstLabel,s);
+
+
+    ++labelNum;
+
+}
+
+//<name> : <type_decl> => <expr>
+void branch_class::code(ostream& s) {
+    expr->code(s);
 }
 
 //let <identifier> : <type_decl> [<- init] in <body>

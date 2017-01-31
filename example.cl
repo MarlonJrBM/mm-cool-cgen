@@ -55,7 +55,7 @@ class Main inherits IO {
   lets() : Bool { let a : Bool in let b: Bool in a};
   caseF() : Object { 
     case c of 
-    e : C => 1 ;
+    e : C => e;
     f: B => 2;
     esac
   };
